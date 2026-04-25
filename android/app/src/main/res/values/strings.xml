@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Todo Assessment</string>
+    <string name="title_activity_main">Todo Assessment</string>
+    <string name="package_name">com.accenture.todoassessment</string>
+    <string name="custom_url_scheme">com.accenture.todoassessment</string>
+</resources>
