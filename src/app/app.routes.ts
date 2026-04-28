@@ -13,4 +13,11 @@ export const routes: Routes = [
         (m) => m.TodoListPage
       ),
   },
+  {
+    path: 'todos/new',
+    loadComponent: () =>
+      import('./presentation/pages/new-task/new-task.page').then(
+        (m) => m.NewTaskPage
+      ),
+  },
 ];

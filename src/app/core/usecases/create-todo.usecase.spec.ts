@@ -7,7 +7,8 @@ import { CreateTodoUseCase } from './create-todo.usecase';
 const mockTodo: Todo = {
   id: '1',
   title: 'New todo',
-  completed: false,
+  category: 'A',
+  status: 'Pendiente',
   createdAt: new Date(),
 };
 
@@ -32,10 +33,10 @@ describe('CreateTodoUseCase', () => {
     expect(useCase).toBeTruthy();
   });
 
-  it('should create a todo with given title', (done) => {
-    useCase.execute('New todo').subscribe((todo) => {
+  it('should create a todo with given title, category and status', (done) => {
+    useCase.execute('New todo', 'A', 'Pendiente').subscribe((todo) => {
       expect(todo).toEqual(mockTodo);
-      expect(mockRepository.create).toHaveBeenCalledWith('New todo');
+      expect(mockRepository.create).toHaveBeenCalledWith('New todo', 'A', 'Pendiente');
       done();
     });
   });

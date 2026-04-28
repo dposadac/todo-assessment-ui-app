@@ -1,22 +1,29 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   IonButton,
+  IonButtons,
   IonContent,
-  IonFooter,
   IonHeader,
-  IonInput,
+  IonIcon,
   IonList,
+  IonMenuButton,
+  IonSelect,
+  IonSelectOption,
+  IonSpinner,
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
-import { inject } from '@angular/core';
-import { Todo } from '../../../core/domain/entities/todo.entity';
-import { CreateTodoUseCase } from '../../../core/usecases/create-todo.usecase';
+import { addIcons } from 'ionicons';
+import { add, search } from 'ionicons/icons';
+import { Todo, TodoStatus } from '../../../core/domain/entities/todo.entity';
 import { DeleteTodoUseCase } from '../../../core/usecases/delete-todo.usecase';
 import { GetTodosUseCase } from '../../../core/usecases/get-todos.usecase';
 import { UpdateTodoUseCase } from '../../../core/usecases/update-todo.usecase';
 import { TodoItemComponent } from '../../components/todo-item/todo-item.component';
+
+const FILTER_KEY = 'todoListFilter';
 
 @Component({
   selector: 'app-todo-list',
@@ -26,83 +33,155 @@ import { TodoItemComponent } from '../../components/todo-item/todo-item.componen
     IonHeader,
     IonToolbar,
     IonTitle,
+    IonButtons,
+    IonMenuButton,
+    IonButton,
+    IonIcon,
     IonContent,
     IonList,
-    IonFooter,
-    IonInput,
-    IonButton,
+    IonSelect,
+    IonSelectOption,
+    IonSpinner,
     TodoItemComponent,
   ],
   template: `
     <ion-header>
       <ion-toolbar color="primary">
-        <ion-title>My Todos</ion-title>
+        <ion-buttons slot="start">
+          <ion-menu-button color="light" />
+        </ion-buttons>
+        <ion-title>LISTA TAREAS</ion-title>
       </ion-toolbar>
     </ion-header>
 
-    <ion-content>
-      <ion-list>
-        @for (todo of todos(); track todo.id) {
-          <app-todo-item
-            [todo]="todo"
-            (toggle)="onToggle($event)"
-            (delete)="onDelete($event)"
-          />
-        } @empty {
-          <p class="empty-state">No tasks yet. Add one below!</p>
-        }
-      </ion-list>
-    </ion-content>
-
-    <ion-footer>
-      <ion-toolbar>
-        <ion-input
-          [(ngModel)]="newTitle"
-          placeholder="New task..."
-          (keyup.enter)="onAdd()"
-          aria-label="New task input"
-        />
-        <ion-button slot="end" (click)="onAdd()" [disabled]="!newTitle.trim()">
-          Add
+    <ion-content class="ion-padding">
+      <div class="filter-row">
+        <div class="select-wrapper">
+          <p class="filter-label">Categoria</p>
+          <ion-select
+            [(ngModel)]="selectedCategory"
+            (ngModelChange)="onSearch()"
+            placeholder="Todas"
+            interface="popover"
+            class="category-select"
+          >
+            <ion-select-option value="">Todas</ion-select-option>
+            @for (cat of categories(); track cat) {
+              <ion-select-option [value]="cat">{{ cat }}</ion-select-option>
+            }
+          </ion-select>
+        </div>
+        <ion-button shape="round" (click)="onSearch()" aria-label="Buscar">
+          <ion-icon slot="icon-only" name="search" />
         </ion-button>
-      </ion-toolbar>
-    </ion-footer>
+        <ion-button shape="round" (click)="onNavigateToNew()" aria-label="Nueva tarea">
+          <ion-icon slot="icon-only" name="add" />
+        </ion-button>
+      </div>
+
+      @if (isLoading()) {
+        <div class="loading-container">
+          <ion-spinner name="crescent" />
+        </div>
+      } @else {
+        <ion-list lines="none">
+          @for (todo of filteredTodos(); track todo.id) {
+            <app-todo-item
+              [todo]="todo"
+              (toggle)="onToggle($event)"
+              (deleteTodo)="onDelete($event)"
+              (statusSelected)="onStatusSelected($event)"
+            />
+          } @empty {
+            <p class="empty-state">No hay tareas. ¡Crea una nueva!</p>
+          }
+        </ion-list>
+
+        <div class="footer-actions">
+          <ion-button expand="block" shape="round" (click)="onActualizarTodos()">
+            Actaulizar todos
+          </ion-button>
+        </div>
+      }
+    </ion-content>
   `,
   styles: [
     `
+      .filter-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .select-wrapper {
+        flex: 1;
+      }
+      .filter-label {
+        font-size: 14px;
+        margin: 0 0 4px 0;
+        color: var(--ion-color-dark);
+      }
+      .category-select {
+        border: 1px solid var(--ion-color-medium);
+        border-radius: 4px;
+        padding: 4px 8px;
+        width: 100%;
+      }
       .empty-state {
         text-align: center;
         padding: 2rem;
         color: var(--ion-color-medium);
       }
-      ion-footer ion-toolbar {
-        display: flex;
-        align-items: center;
-        padding: 0 8px;
+      .footer-actions {
+        margin-top: 24px;
       }
     `,
   ],
 })
 export class TodoListPage implements OnInit {
   private readonly getTodos = inject(GetTodosUseCase);
-  private readonly createTodo = inject(CreateTodoUseCase);
   private readonly updateTodo = inject(UpdateTodoUseCase);
   private readonly deleteTodo = inject(DeleteTodoUseCase);
+  private readonly router = inject(Router);
 
   todos = signal<Todo[]>([]);
-  newTitle = '';
+  isLoading = signal(false);
+  selectedCategory = '';
+  activeFilter = signal<string>('');
+
+  private readonly pendingStatuses = new Map<string, TodoStatus>();
+
+  readonly categories = computed(() => {
+    const cats = this.todos().map((t) => t.category).filter(Boolean);
+    return [...new Set(cats)].sort();
+  });
+
+  filteredTodos = computed(() => {
+    const filter = this.activeFilter();
+    if (!filter) return this.todos();
+    return this.todos().filter((t) => t.category === filter);
+  });
+
+  constructor() {
+    addIcons({ search, add });
+  }
 
   ngOnInit(): void {
+    const saved = sessionStorage.getItem(FILTER_KEY);
+    if (saved !== null) {
+      this.selectedCategory = saved;
+      this.activeFilter.set(saved);
+    }
     this.loadTodos();
   }
 
-  onAdd(): void {
-    const title = this.newTitle.trim();
-    if (!title) return;
-    this.createTodo.execute(title).subscribe((todo) => {
-      this.todos.update((current) => [...current, todo]);
-      this.newTitle = '';
-    });
+  onSearch(): void {
+    this.activeFilter.set(this.selectedCategory);
+  }
+
+  onNavigateToNew(): void {
+    sessionStorage.setItem(FILTER_KEY, this.selectedCategory);
+    this.router.navigateByUrl('/todos/new');
   }
 
   onToggle(updated: Todo): void {
@@ -119,7 +198,25 @@ export class TodoListPage implements OnInit {
     });
   }
 
+  onStatusSelected(event: { id: string; status: TodoStatus }): void {
+    this.pendingStatuses.set(event.id, event.status);
+  }
+
+  onActualizarTodos(): void {
+    this.filteredTodos().forEach((todo) => {
+      const newStatus = this.pendingStatuses.get(todo.id) ?? todo.status;
+      if (newStatus !== todo.status) {
+        this.onToggle({ ...todo, status: newStatus });
+      }
+    });
+    this.pendingStatuses.clear();
+  }
+
   private loadTodos(): void {
-    this.getTodos.execute().subscribe((todos) => this.todos.set(todos));
+    this.isLoading.set(true);
+    this.getTodos.execute().subscribe((todos) => {
+      this.todos.set(todos);
+      this.isLoading.set(false);
+    });
   }
 }

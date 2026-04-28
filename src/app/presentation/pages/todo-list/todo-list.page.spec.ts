@@ -1,43 +1,38 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { Todo } from '../../../core/domain/entities/todo.entity';
-import { CreateTodoUseCase } from '../../../core/usecases/create-todo.usecase';
 import { DeleteTodoUseCase } from '../../../core/usecases/delete-todo.usecase';
 import { GetTodosUseCase } from '../../../core/usecases/get-todos.usecase';
 import { UpdateTodoUseCase } from '../../../core/usecases/update-todo.usecase';
 import { TodoListPage } from './todo-list.page';
 
 const mockTodos: Todo[] = [
-  { id: '1', title: 'First todo', completed: false, createdAt: new Date() },
-  { id: '2', title: 'Second todo', completed: true, createdAt: new Date() },
+  { id: '1', title: 'First todo', category: 'A', status: 'Pendiente', createdAt: new Date() },
+  { id: '2', title: 'Second todo', category: 'B', status: 'Completado', createdAt: new Date() },
 ];
-
-const newTodo: Todo = {
-  id: '3',
-  title: 'New todo',
-  completed: false,
-  createdAt: new Date(),
-};
 
 describe('TodoListPage', () => {
   let component: TodoListPage;
   let fixture: ComponentFixture<TodoListPage>;
+  let routerSpy: jasmine.SpyObj<Router>;
 
   const getTodosUseCase = { execute: jasmine.createSpy('execute').and.returnValue(of(mockTodos)) };
-  const createTodoUseCase = { execute: jasmine.createSpy('execute').and.returnValue(of(newTodo)) };
   const updateTodoUseCase = { execute: jasmine.createSpy('execute').and.callFake((t: Todo) => of(t)) };
   const deleteTodoUseCase = { execute: jasmine.createSpy('execute').and.returnValue(of(void 0)) };
 
   beforeEach(async () => {
+    routerSpy = jasmine.createSpyObj('Router', ['navigateByUrl']);
+
     await TestBed.configureTestingModule({
       imports: [TodoListPage, IonicModule.forRoot(), FormsModule],
       providers: [
         { provide: GetTodosUseCase, useValue: getTodosUseCase },
-        { provide: CreateTodoUseCase, useValue: createTodoUseCase },
         { provide: UpdateTodoUseCase, useValue: updateTodoUseCase },
         { provide: DeleteTodoUseCase, useValue: deleteTodoUseCase },
+        { provide: Router, useValue: routerSpy },
       ],
     }).compileComponents();
 
@@ -55,33 +50,38 @@ describe('TodoListPage', () => {
     expect(component.todos().length).toBe(2);
   });
 
-  it('should add a new todo', () => {
-    component.newTitle = 'New todo';
-    component.onAdd();
-
-    expect(createTodoUseCase.execute).toHaveBeenCalledWith('New todo');
-    expect(component.todos().length).toBe(3);
-    expect(component.newTitle).toBe('');
+  it('should show all todos when no category filter is active', () => {
+    expect(component.filteredTodos().length).toBe(2);
   });
 
-  it('should not add todo when title is empty or whitespace', () => {
-    const initialCount = component.todos().length;
-    createTodoUseCase.execute.calls.reset();
-
-    component.newTitle = '   ';
-    component.onAdd();
-
-    expect(createTodoUseCase.execute).not.toHaveBeenCalled();
-    expect(component.todos().length).toBe(initialCount);
+  it('should derive categories dynamically from loaded todos', () => {
+    expect(component.categories()).toEqual(['A', 'B']);
   });
 
-  it('should toggle a todo completed state', () => {
-    const updatedTodo = { ...mockTodos[0], completed: true };
+  it('should filter todos by category when search is activated', () => {
+    component.selectedCategory = 'A';
+    component.onSearch();
+
+    expect(component.filteredTodos().length).toBe(1);
+    expect(component.filteredTodos()[0].category).toBe('A');
+  });
+
+  it('should show all todos when filter is cleared', () => {
+    component.selectedCategory = 'A';
+    component.onSearch();
+    component.selectedCategory = '';
+    component.onSearch();
+
+    expect(component.filteredTodos().length).toBe(2);
+  });
+
+  it('should toggle a todo status', () => {
+    const updatedTodo = { ...mockTodos[0], status: 'Completado' as const };
     component.onToggle(updatedTodo);
 
     expect(updateTodoUseCase.execute).toHaveBeenCalledWith(updatedTodo);
     const found = component.todos().find((t) => t.id === '1');
-    expect(found?.completed).toBeTrue();
+    expect(found?.status).toBe('Completado');
   });
 
   it('should delete a todo by id', () => {
@@ -91,8 +91,43 @@ describe('TodoListPage', () => {
     expect(component.todos().find((t) => t.id === '1')).toBeUndefined();
   });
 
-  it('should render the page header', () => {
+  it('should navigate to new task page', () => {
+    component.onNavigateToNew();
+    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/todos/new');
+  });
+
+  it('should render LISTA TAREAS in header', () => {
     const title = fixture.nativeElement.querySelector('ion-title');
-    expect(title.textContent.trim()).toBe('My Todos');
+    expect(title.textContent.trim()).toBe('LISTA TAREAS');
+  });
+
+  it('should dynamically add new category to filter options when a todo with a new category is added', () => {
+    const newTodo: Todo = { id: '3', title: 'Third', category: 'C', status: 'Pendiente', createdAt: new Date() };
+    component.todos.update((current) => [...current, newTodo]);
+    expect(component.categories()).toEqual(['A', 'B', 'C']);
+  });
+
+  it('should save selected category to sessionStorage before navigating to new task', () => {
+    component.selectedCategory = 'B';
+    component.onNavigateToNew();
+    expect(sessionStorage.getItem('todoListFilter')).toBe('B');
+  });
+
+  it('should restore category filter from sessionStorage on init', () => {
+    sessionStorage.setItem('todoListFilter', 'A');
+    getTodosUseCase.execute.and.returnValue(of(mockTodos));
+    component.ngOnInit();
+    expect(component.selectedCategory).toBe('A');
+    expect(component.activeFilter()).toBe('A');
+  });
+
+  it('should show all todos when Todas option is selected after a filter was active', () => {
+    component.selectedCategory = 'A';
+    component.onSearch();
+    expect(component.filteredTodos().length).toBe(1);
+
+    component.selectedCategory = '';
+    component.onSearch();
+    expect(component.filteredTodos().length).toBe(2);
   });
 });

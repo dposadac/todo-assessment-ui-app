@@ -7,7 +7,8 @@ import { UpdateTodoUseCase } from './update-todo.usecase';
 const mockTodo: Todo = {
   id: '1',
   title: 'Updated todo',
-  completed: true,
+  category: 'B',
+  status: 'Completado',
   createdAt: new Date(),
 };
 

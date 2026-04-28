@@ -6,7 +6,8 @@ import { TodoItemComponent } from './todo-item.component';
 const mockTodo: Todo = {
   id: '1',
   title: 'Test todo item',
-  completed: false,
+  category: 'A',
+  status: 'Pendiente',
   createdAt: new Date(),
 };
 
@@ -29,42 +30,73 @@ describe('TodoItemComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render todo title', () => {
-    const label = fixture.nativeElement.querySelector('ion-label');
-    expect(label.textContent.trim()).toBe('Test todo item');
+  it('should render todo title in card', () => {
+    const card = fixture.nativeElement.querySelector('.task-card');
+    expect(card.textContent).toContain('Test todo item');
   });
 
-  it('should emit toggle with inverted completed state', () => {
+  it('should render category in card', () => {
+    const card = fixture.nativeElement.querySelector('.task-card');
+    expect(card.textContent).toContain('A');
+  });
+
+  it('should render estado in card', () => {
+    const card = fixture.nativeElement.querySelector('.task-card');
+    expect(card.textContent).toContain('Pendiente');
+  });
+
+  it('should emit toggle with status Completado when current status is Pendiente', () => {
     const toggleSpy = jasmine.createSpy('toggle');
     component.toggle.subscribe(toggleSpy);
 
     component.onToggle();
 
-    expect(toggleSpy).toHaveBeenCalledWith({ ...mockTodo, completed: true });
+    expect(toggleSpy).toHaveBeenCalledWith({ ...mockTodo, status: 'Completado' });
   });
 
-  it('should emit delete with todo id', () => {
-    const deleteSpy = jasmine.createSpy('delete');
-    component.delete.subscribe(deleteSpy);
+  it('should not emit toggle when current status is already Completado', () => {
+    component.todo = { ...mockTodo, status: 'Completado' };
+    const toggleSpy = jasmine.createSpy('toggle');
+    component.toggle.subscribe(toggleSpy);
+
+    component.onToggle();
+
+    expect(toggleSpy).not.toHaveBeenCalled();
+  });
+
+  it('should not emit via onCambiar when status is already Completado', () => {
+    component.todo = { ...mockTodo, status: 'Completado' };
+    component.localStatus = 'Pendiente';
+    const toggleSpy = jasmine.createSpy('toggle');
+    component.toggle.subscribe(toggleSpy);
+
+    component.onCambiar();
+
+    expect(toggleSpy).not.toHaveBeenCalled();
+  });
+
+  it('should emit deleteTodo with todo id', () => {
+    const deleteSpy = jasmine.createSpy('deleteTodo');
+    component.deleteTodo.subscribe(deleteSpy);
 
     component.onDelete();
 
     expect(deleteSpy).toHaveBeenCalledWith('1');
   });
 
-  it('should apply completed class when todo is completed', () => {
-    component.todo = { ...mockTodo, completed: true };
+  it('should apply completed class when status is Completado', () => {
+    component.todo = { ...mockTodo, status: 'Completado' };
     fixture.detectChanges();
 
-    const item = fixture.nativeElement.querySelector('ion-item');
-    expect(item.classList.contains('completed')).toBeTrue();
+    const row = fixture.nativeElement.querySelector('.task-row');
+    expect(row.classList.contains('completed')).toBeTrue();
   });
 
-  it('should not apply completed class when todo is not completed', () => {
-    component.todo = { ...mockTodo, completed: false };
+  it('should not apply completed class when status is Pendiente', () => {
+    component.todo = { ...mockTodo, status: 'Pendiente' };
     fixture.detectChanges();
 
-    const item = fixture.nativeElement.querySelector('ion-item');
-    expect(item.classList.contains('completed')).toBeFalse();
+    const row = fixture.nativeElement.querySelector('.task-row');
+    expect(row.classList.contains('completed')).toBeFalse();
   });
 });

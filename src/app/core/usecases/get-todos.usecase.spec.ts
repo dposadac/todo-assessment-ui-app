@@ -5,7 +5,7 @@ import { TodoRepository } from '../domain/repositories/todo.repository';
 import { GetTodosUseCase } from './get-todos.usecase';
 
 const mockTodos: Todo[] = [
-  { id: '1', title: 'Test todo', completed: false, createdAt: new Date() },
+  { id: '1', title: 'Test todo', category: 'A', status: 'Pendiente', createdAt: new Date() },
 ];
 
 const mockRepository: Partial<TodoRepository> = {

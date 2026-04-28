@@ -1,6 +1,10 @@
+export type TodoStatus = 'Pendiente' | 'Completado';
+export type TodoCategory = string;
+
 export interface Todo {
   id: string;
   title: string;
-  completed: boolean;
+  category: TodoCategory;
+  status: TodoStatus;
   createdAt: Date;
 }

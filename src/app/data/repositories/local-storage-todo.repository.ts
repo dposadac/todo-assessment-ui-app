@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { Todo } from '../../core/domain/entities/todo.entity';
+import { Todo, TodoCategory, TodoStatus } from '../../core/domain/entities/todo.entity';
 import { TodoRepository } from '../../core/domain/repositories/todo.repository';
 
 const STORAGE_KEY = 'todos';
@@ -24,12 +24,13 @@ export class LocalStorageTodoRepository extends TodoRepository {
     return of(this.load());
   }
 
-  override create(title: string): Observable<Todo> {
+  override create(title: string, category: TodoCategory, status: TodoStatus): Observable<Todo> {
     const todos = this.load();
     const newTodo: Todo = {
       id: crypto.randomUUID(),
       title,
-      completed: false,
+      category,
+      status,
       createdAt: new Date(),
     };
     this.save([...todos, newTodo]);
