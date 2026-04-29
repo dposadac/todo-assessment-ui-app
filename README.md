@@ -165,3 +165,7 @@ Rpta: Como desarrollador web no tuvo un esfuerzo ionic ya que es framework hibri
 
 - 4. Archivos APK e IPA generados a partir de la aplicación demo.
 Ruta: docs/app-debug.apk
+
+
+## Almacenamiento de TODO-LIST en Firebase Api
+![alt text](image-6.png)
