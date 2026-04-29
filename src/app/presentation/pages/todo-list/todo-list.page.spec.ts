@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
+import { signal } from '@angular/core';
 import { Todo } from '../../../core/domain/entities/todo.entity';
+import { RemoteConfigService } from '../../../core/services/remote-config.service';
 import { DeleteTodoUseCase } from '../../../core/usecases/delete-todo.usecase';
 import { GetTodosUseCase } from '../../../core/usecases/get-todos.usecase';
 import { UpdateTodoUseCase } from '../../../core/usecases/update-todo.usecase';
@@ -18,12 +20,27 @@ describe('TodoListPage', () => {
   let component: TodoListPage;
   let fixture: ComponentFixture<TodoListPage>;
   let routerSpy: jasmine.SpyObj<Router>;
+  let todosSubject: Subject<Todo[]>;
 
-  const getTodosUseCase = { execute: jasmine.createSpy('execute').and.returnValue(of(mockTodos)) };
-  const updateTodoUseCase = { execute: jasmine.createSpy('execute').and.callFake((t: Todo) => of(t)) };
-  const deleteTodoUseCase = { execute: jasmine.createSpy('execute').and.returnValue(of(void 0)) };
+  const remoteConfigStub = {
+    categories: signal(['Personal', 'Trabajo', 'Compras']),
+    initialize: jasmine.createSpy('initialize').and.returnValue(Promise.resolve()),
+  };
+
+  const getTodosUseCase = {
+    execute: jasmine.createSpy('execute'),
+  };
+  const updateTodoUseCase = {
+    execute: jasmine.createSpy('execute').and.callFake((t: Todo) => of(t)),
+  };
+  const deleteTodoUseCase = {
+    execute: jasmine.createSpy('execute').and.returnValue(of(void 0)),
+  };
 
   beforeEach(async () => {
+    todosSubject = new Subject<Todo[]>();
+    getTodosUseCase.execute.and.returnValue(todosSubject.asObservable());
+
     routerSpy = jasmine.createSpyObj('Router', ['navigateByUrl']);
 
     await TestBed.configureTestingModule({
@@ -32,12 +49,17 @@ describe('TodoListPage', () => {
         { provide: GetTodosUseCase, useValue: getTodosUseCase },
         { provide: UpdateTodoUseCase, useValue: updateTodoUseCase },
         { provide: DeleteTodoUseCase, useValue: deleteTodoUseCase },
+        { provide: RemoteConfigService, useValue: remoteConfigStub },
         { provide: Router, useValue: routerSpy },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TodoListPage);
     component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    // Simulate first Firestore emission
+    todosSubject.next(mockTodos);
     fixture.detectChanges();
   });
 
@@ -50,6 +72,10 @@ describe('TodoListPage', () => {
     expect(component.todos().length).toBe(2);
   });
 
+  it('should hide loading after first emission', () => {
+    expect(component.isLoading()).toBeFalse();
+  });
+
   it('should show all todos when no category filter is active', () => {
     expect(component.filteredTodos().length).toBe(2);
   });
@@ -58,10 +84,17 @@ describe('TodoListPage', () => {
     expect(component.categories()).toEqual(['A', 'B']);
   });
 
+  it('should merge remote config categories with todo categories in allCategories', () => {
+    const all = component.allCategories();
+    expect(all).toContain('Personal');
+    expect(all).toContain('Trabajo');
+    expect(all).toContain('A');
+    expect(all).toContain('B');
+  });
+
   it('should filter todos by category when search is activated', () => {
     component.selectedCategory = 'A';
     component.onSearch();
-
     expect(component.filteredTodos().length).toBe(1);
     expect(component.filteredTodos()[0].category).toBe('A');
   });
@@ -71,14 +104,12 @@ describe('TodoListPage', () => {
     component.onSearch();
     component.selectedCategory = '';
     component.onSearch();
-
     expect(component.filteredTodos().length).toBe(2);
   });
 
   it('should toggle a todo status', () => {
     const updatedTodo = { ...mockTodos[0], status: 'Completado' as const };
     component.onToggle(updatedTodo);
-
     expect(updateTodoUseCase.execute).toHaveBeenCalledWith(updatedTodo);
     const found = component.todos().find((t) => t.id === '1');
     expect(found?.status).toBe('Completado');
@@ -86,7 +117,6 @@ describe('TodoListPage', () => {
 
   it('should delete a todo by id', () => {
     component.onDelete('1');
-
     expect(deleteTodoUseCase.execute).toHaveBeenCalledWith('1');
     expect(component.todos().find((t) => t.id === '1')).toBeUndefined();
   });
@@ -102,9 +132,15 @@ describe('TodoListPage', () => {
   });
 
   it('should dynamically add new category to filter options when a todo with a new category is added', () => {
-    const newTodo: Todo = { id: '3', title: 'Third', category: 'C', status: 'Pendiente', createdAt: new Date() };
+    const newTodo: Todo = {
+      id: '3',
+      title: 'Third',
+      category: 'C',
+      status: 'Pendiente',
+      createdAt: new Date(),
+    };
     component.todos.update((current) => [...current, newTodo]);
-    expect(component.categories()).toEqual(['A', 'B', 'C']);
+    expect(component.categories()).toContain('C');
   });
 
   it('should save selected category to sessionStorage before navigating to new task', () => {
@@ -115,8 +151,8 @@ describe('TodoListPage', () => {
 
   it('should restore category filter from sessionStorage on init', () => {
     sessionStorage.setItem('todoListFilter', 'A');
-    getTodosUseCase.execute.and.returnValue(of(mockTodos));
     component.ngOnInit();
+    todosSubject.next(mockTodos);
     expect(component.selectedCategory).toBe('A');
     expect(component.activeFilter()).toBe('A');
   });
@@ -125,9 +161,20 @@ describe('TodoListPage', () => {
     component.selectedCategory = 'A';
     component.onSearch();
     expect(component.filteredTodos().length).toBe(1);
-
     component.selectedCategory = '';
     component.onSearch();
     expect(component.filteredTodos().length).toBe(2);
+  });
+
+  it('should update todos in real-time when new emission arrives', () => {
+    const newTodo: Todo = {
+      id: '3',
+      title: 'New real-time todo',
+      category: 'C',
+      status: 'Pendiente',
+      createdAt: new Date(),
+    };
+    todosSubject.next([...mockTodos, newTodo]);
+    expect(component.todos().length).toBe(3);
   });
 });

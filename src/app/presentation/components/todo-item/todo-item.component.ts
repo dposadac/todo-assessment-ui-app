@@ -8,12 +8,7 @@ import {
   SimpleChanges,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  IonButton,
-  IonCheckbox,
-  IonSelect,
-  IonSelectOption,
-} from '@ionic/angular/standalone';
+import { IonButton, IonCheckbox, IonSelect, IonSelectOption } from '@ionic/angular/standalone';
 import { Todo, TodoStatus } from '../../../core/domain/entities/todo.entity';
 
 @Component({
@@ -44,7 +39,9 @@ import { Todo, TodoStatus } from '../../../core/domain/entities/todo.entity';
             <ion-select-option value="Pendiente">Pendiente</ion-select-option>
             <ion-select-option value="Completado">Completado</ion-select-option>
           </ion-select>
-          <ion-button size="small" [disabled]="todo.status === 'Completado'" (click)="onCambiar()">Cambiar</ion-button>
+          <ion-button size="small" [disabled]="todo.status === 'Completado'" (click)="onCambiar()"
+            >Cambiar</ion-button
+          >
         </div>
       </div>
     </div>

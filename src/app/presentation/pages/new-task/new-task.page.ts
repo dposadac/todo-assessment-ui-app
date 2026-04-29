@@ -13,6 +13,7 @@ import {
   IonToolbar,
 } from '@ionic/angular/standalone';
 import { TodoStatus } from '../../../core/domain/entities/todo.entity';
+import { RemoteConfigService } from '../../../core/services/remote-config.service';
 import { CreateTodoUseCase } from '../../../core/usecases/create-todo.usecase';
 
 @Component({
@@ -49,13 +50,18 @@ import { CreateTodoUseCase } from '../../../core/usecases/create-todo.usecase';
         />
 
         <ion-label>Categoria</ion-label>
-        <ion-input
+        <ion-select
           [(ngModel)]="category"
-          placeholder="Ingresa la categoría"
+          placeholder="Selecciona una categoría"
+          interface="popover"
           fill="outline"
           class="form-field"
           aria-label="Categoria"
-        />
+        >
+          @for (cat of remoteConfig.categories(); track cat) {
+            <ion-select-option [value]="cat">{{ cat }}</ion-select-option>
+          }
+        </ion-select>
 
         <ion-label>Estado</ion-label>
         <ion-select
@@ -71,9 +77,7 @@ import { CreateTodoUseCase } from '../../../core/usecases/create-todo.usecase';
         </ion-select>
 
         <div class="button-row">
-          <ion-button expand="block" shape="round" (click)="onBack()">
-            Atras
-          </ion-button>
+          <ion-button expand="block" shape="round" (click)="onBack()"> Atras </ion-button>
           <ion-button
             expand="block"
             shape="round"
@@ -111,6 +115,7 @@ import { CreateTodoUseCase } from '../../../core/usecases/create-todo.usecase';
 export class NewTaskPage {
   private readonly createTodo = inject(CreateTodoUseCase);
   private readonly router = inject(Router);
+  readonly remoteConfig = inject(RemoteConfigService);
 
   title = '';
   category = '';

@@ -12,10 +12,7 @@ describe('DeleteTodoUseCase', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [
-        DeleteTodoUseCase,
-        { provide: TodoRepository, useValue: mockRepository },
-      ],
+      providers: [DeleteTodoUseCase, { provide: TodoRepository, useValue: mockRepository }],
     });
     useCase = TestBed.inject(DeleteTodoUseCase);
   });

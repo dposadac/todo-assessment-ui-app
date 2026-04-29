@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -15,9 +15,11 @@ import {
   IonTitle,
   IonToolbar,
 } from '@ionic/angular/standalone';
+import { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { add, search } from 'ionicons/icons';
 import { Todo, TodoStatus } from '../../../core/domain/entities/todo.entity';
+import { RemoteConfigService } from '../../../core/services/remote-config.service';
 import { DeleteTodoUseCase } from '../../../core/usecases/delete-todo.usecase';
 import { GetTodosUseCase } from '../../../core/usecases/get-todos.usecase';
 import { UpdateTodoUseCase } from '../../../core/usecases/update-todo.usecase';
@@ -66,7 +68,7 @@ const FILTER_KEY = 'todoListFilter';
             class="category-select"
           >
             <ion-select-option value="">Todas</ion-select-option>
-            @for (cat of categories(); track cat) {
+            @for (cat of allCategories(); track cat) {
               <ion-select-option [value]="cat">{{ cat }}</ion-select-option>
             }
           </ion-select>
@@ -82,6 +84,7 @@ const FILTER_KEY = 'todoListFilter';
       @if (isLoading()) {
         <div class="loading-container">
           <ion-spinner name="crescent" />
+          <p class="loading-text">Cargando tareas...</p>
         </div>
       } @else {
         <ion-list lines="none">
@@ -99,7 +102,7 @@ const FILTER_KEY = 'todoListFilter';
 
         <div class="footer-actions">
           <ion-button expand="block" shape="round" (click)="onActualizarTodos()">
-            Actaulizar todos
+            Actualizar todos
           </ion-button>
         </div>
       }
@@ -127,6 +130,19 @@ const FILTER_KEY = 'todoListFilter';
         padding: 4px 8px;
         width: 100%;
       }
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 0;
+        gap: 12px;
+      }
+      .loading-text {
+        color: var(--ion-color-medium);
+        font-size: 14px;
+        margin: 0;
+      }
       .empty-state {
         text-align: center;
         padding: 2rem;
@@ -138,22 +154,32 @@ const FILTER_KEY = 'todoListFilter';
     `,
   ],
 })
-export class TodoListPage implements OnInit {
+export class TodoListPage implements OnInit, OnDestroy {
   private readonly getTodos = inject(GetTodosUseCase);
   private readonly updateTodo = inject(UpdateTodoUseCase);
   private readonly deleteTodo = inject(DeleteTodoUseCase);
+  private readonly remoteConfig = inject(RemoteConfigService);
   private readonly router = inject(Router);
 
   todos = signal<Todo[]>([]);
-  isLoading = signal(false);
+  isLoading = signal(true);
   selectedCategory = '';
   activeFilter = signal<string>('');
 
   private readonly pendingStatuses = new Map<string, TodoStatus>();
+  private todosSubscription: Subscription | null = null;
 
   readonly categories = computed(() => {
-    const cats = this.todos().map((t) => t.category).filter(Boolean);
+    const cats = this.todos()
+      .map((t) => t.category)
+      .filter(Boolean);
     return [...new Set(cats)].sort();
+  });
+
+  readonly allCategories = computed(() => {
+    const fromTodos = this.categories();
+    const fromRemote = this.remoteConfig.categories();
+    return [...new Set([...fromRemote, ...fromTodos])].sort();
   });
 
   filteredTodos = computed(() => {
@@ -175,6 +201,10 @@ export class TodoListPage implements OnInit {
     this.loadTodos();
   }
 
+  ngOnDestroy(): void {
+    this.todosSubscription?.unsubscribe();
+  }
+
   onSearch(): void {
     this.activeFilter.set(this.selectedCategory);
   }
@@ -186,9 +216,7 @@ export class TodoListPage implements OnInit {
 
   onToggle(updated: Todo): void {
     this.updateTodo.execute(updated).subscribe((todo) => {
-      this.todos.update((current) =>
-        current.map((t) => (t.id === todo.id ? todo : t))
-      );
+      this.todos.update((current) => current.map((t) => (t.id === todo.id ? todo : t)));
     });
   }
 
@@ -214,9 +242,16 @@ export class TodoListPage implements OnInit {
 
   private loadTodos(): void {
     this.isLoading.set(true);
-    this.getTodos.execute().subscribe((todos) => {
-      this.todos.set(todos);
-      this.isLoading.set(false);
+    let firstEmission = true;
+    this.todosSubscription = this.getTodos.execute().subscribe({
+      next: (todos) => {
+        this.todos.set(todos);
+        if (firstEmission) {
+          this.isLoading.set(false);
+          firstEmission = false;
+        }
+      },
+      error: () => this.isLoading.set(false),
     });
   }
 }

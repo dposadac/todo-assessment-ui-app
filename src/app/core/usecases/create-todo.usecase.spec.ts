@@ -21,10 +21,7 @@ describe('CreateTodoUseCase', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [
-        CreateTodoUseCase,
-        { provide: TodoRepository, useValue: mockRepository },
-      ],
+      providers: [CreateTodoUseCase, { provide: TodoRepository, useValue: mockRepository }],
     });
     useCase = TestBed.inject(CreateTodoUseCase);
   });

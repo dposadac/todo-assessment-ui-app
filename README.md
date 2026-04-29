@@ -36,6 +36,10 @@ src/app/
 - Inyección de dependencias con `inject()` (no constructor).
 - Persistencia vía **localStorage** (swappable por cualquier backend).
 
+
+## UX App (To-do List)
+![alt text](UX_VisualApp_To-List.png)
+
 ## Requisitos previos
 
 - Node.js 20 LTS
@@ -125,22 +129,39 @@ El pipeline (`.github/workflows/ci.yml`) se ejecuta en cada push a `main`/`devel
 | **Unit Tests** | Siempre | Karma + ChromeHeadless + cobertura |
 | **Build** | Tras lint y tests | `npm run build` + artifact `dist/` (7 días) |
 
-## Estructura de entidad principal
 
-```typescript
-interface Todo {
-  id: string;        // UUID generado con crypto.randomUUID()
-  title: string;
-  completed: boolean;
-  createdAt: Date;
-}
-```
+## Entregables
 
-## Casos de uso
+Entregables
+- 1. Código fuente de la aplicación actualizado en un repositorio de Git, incluyendo un archivo README que explique cómo ejecutar la aplicación y detalle los cambios realizados.
 
-| Use Case | Descripción |
-|---|---|
-| `GetTodosUseCase` | Obtiene todas las tareas del repositorio |
-| `CreateTodoUseCase` | Crea una nueva tarea con UUID y fecha |
-| `UpdateTodoUseCase` | Actualiza el estado de una tarea existente |
-| `DeleteTodoUseCase` | Elimina una tarea por su ID |
+- 2. Capturas de pantalla o grabaciones de video que muestren las nuevas funcionalidades en acción.
+
+![alt text](image.png)
+
+![alt text](image-1.png)
+
+![alt text](image-2.png)
+
+![alt text](image-3.png)
+
+![alt text](image-4.png)
+
+![alt text](image-5.png)
+
+- 3. Respuestas a las siguientes preguntas:
+
+¿Qué técnicas de optimización de rendimiento aplicaste y por qué?
+- Uso de almacenamiento local con localstorage
+- Uso de signal para intercambio de estados entre los componentes.
+
+¿Cómo aseguraste la calidad y mantenibilidad del código?
+Rpta: La calidad en codigo tengo en cuenta separacón de componenentes y clases aplicando elementos como dry, kiss para programar funciones simples y no generan gran tamaño en la clase u componente. Declaración de estructuras, variables y atributos como se define en clean code. Estrcturar la aplicación que separe los componentes presentacionales (pagina) de los componentes reutilizar en la app, utilizar constantes para reutilizar variables dentro de la app que se comparten.
+
+¿Cuáles fueron los principales desafíos que enfrentaste al implementar las nuevas funcionalidades?
+Rpta: Como desarrollador web no tuvo un esfuerzo ionic ya que es framework hibrido que usa la tecnologia angular para desarrollar las aplicaciones su diferencia con respecto en angular la directivas cambian ya que en ionic se usa directiva Ej. Ion y angular app pero ambas son basadas en misma estructura. El reto grande desde hace 3 años volver a usar capacitor, volver a leer sobre este runtime y el uso se permite darle capacitor para ejecutar en su maquina nativa las aplicaciones multiplataforma y de configurar un emulador y generar una APK, como comento desde primer empleo aprendi, capacite e inicie con esta tecnologia no genera esas aplicaciones para plataforma movil. Pero su dinamismo con angular me permitio poder desarrollar.
+
+- Siempre desde ionic con capacitor ha sido desafio la configuración del grandle este fue mi mayor desafio me volvi a enfrentar. 
+
+- 4. Archivos APK e IPA generados a partir de la aplicación demo.
+Ruta: docs/app-debug.apk

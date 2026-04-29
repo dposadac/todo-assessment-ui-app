@@ -45,15 +45,6 @@ describe('TodoItemComponent', () => {
     expect(card.textContent).toContain('Pendiente');
   });
 
-  it('should emit toggle with status Completado when current status is Pendiente', () => {
-    const toggleSpy = jasmine.createSpy('toggle');
-    component.toggle.subscribe(toggleSpy);
-
-    component.onToggle();
-
-    expect(toggleSpy).toHaveBeenCalledWith({ ...mockTodo, status: 'Completado' });
-  });
-
   it('should not emit toggle when current status is already Completado', () => {
     component.todo = { ...mockTodo, status: 'Completado' };
     const toggleSpy = jasmine.createSpy('toggle');

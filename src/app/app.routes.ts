@@ -9,15 +9,11 @@ export const routes: Routes = [
   {
     path: 'todos',
     loadComponent: () =>
-      import('./presentation/pages/todo-list/todo-list.page').then(
-        (m) => m.TodoListPage
-      ),
+      import('./presentation/pages/todo-list/todo-list.page').then((m) => m.TodoListPage),
   },
   {
     path: 'todos/new',
     loadComponent: () =>
-      import('./presentation/pages/new-task/new-task.page').then(
-        (m) => m.NewTaskPage
-      ),
+      import('./presentation/pages/new-task/new-task.page').then((m) => m.NewTaskPage),
   },
 ];
